@@ -1,15 +1,30 @@
 import cv2
 
-cap = cv2.VideoCapture(0)  # Abrir la cámara (0 es la cámara por defecto)
+cap = cv2.VideoCapture(0)
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+ret, frame1 = cap.read()
+ret, frame2 = cap.read()
 
-    cv2.imshow('Cámara encendida', frame)
+while cap.isOpened():
+    diff = cv2.absdiff(frame1, frame2)              # Diferencia absoluta entre frames
+    gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)   # Convertir a gris
+    blur = cv2.GaussianBlur(gray, (5,5), 0)         # Suavizar para reducir ruido
+    _, thresh = cv2.threshold(blur, 20, 255, cv2.THRESH_BINARY)  # Umbralizar
+    dilated = cv2.dilate(thresh, None, iterations=3)            # Dilatar para destacar movimiento
+    contours, _ = cv2.findContours(dilated, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):  # Presiona 'q' para salir
+    for contour in contours:
+        if cv2.contourArea(contour) < 500:  # Ignorar movimientos pequeños (ruido)
+            continue
+        x, y, w, h = cv2.boundingRect(contour)
+        cv2.rectangle(frame1, (x,y), (x+w, y+h), (0,255,0), 2)  # Dibujar rectángulo verde
+
+    cv2.imshow("Detector de movimiento", frame1)
+
+    frame1 = frame2
+    ret, frame2 = cap.read()
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()
